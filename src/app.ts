@@ -2,6 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import appointmentRoutes from './routes/appointmentRoutes';
 import clinicianRoutes from './routes/clinicianRoutes';
+import swaggerUi from 'swagger-ui-express';
+import swaggerSpec from './docs/swagger';
 
 export function createApp() {
   const app = express();
@@ -11,6 +13,9 @@ export function createApp() {
 
   app.use('/', appointmentRoutes);
   app.use('/', clinicianRoutes);
+
+  // Swagger UI
+  app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
   app.use((_req, _res, next) => next({ status: 404, message: 'route does not exist' }));
 
