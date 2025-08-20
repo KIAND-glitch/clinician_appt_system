@@ -1,3 +1,4 @@
+
 import request from 'supertest';
 
 // Use in-memory SQLite for tests — set BEFORE importing app/db
@@ -133,5 +134,60 @@ describe('POST /appointments (patient booking)', () => {
 
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/past/i);
+  });
+});
+
+
+describe('GET /appointments (admin)', () => {
+  beforeEach(async () => {
+    // Seed some appointments
+    await request(app).post('/appointments').send({
+      clinicianId: 'c1', patientId: 'p1', start: isoPlus(0), end: isoPlus(30)
+    });
+    await request(app).post('/appointments').send({
+      clinicianId: 'c2', patientId: 'p2', start: isoPlus(60), end: isoPlus(90)
+    });
+    await request(app).post('/appointments').send({
+      clinicianId: 'c1', patientId: 'p3', start: isoPlus(120), end: isoPlus(150)
+    });
+  });
+
+  test('returns all appointments', async () => {
+    const res = await request(app).get('/appointments');
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body.length).toBe(3);
+  });
+
+  test('filters by from date', async () => {
+    const from = isoPlus(60);
+    const res = await request(app).get('/appointments').query({ from });
+    expect(res.status).toBe(200);
+    expect(res.body.length).toBe(2);
+    for (const appt of res.body) {
+      expect(new Date(appt.start).getTime()).toBeGreaterThanOrEqual(new Date(from).getTime());
+    }
+  });
+
+  test('filters by to date', async () => {
+    const to = isoPlus(60);
+    const res = await request(app).get('/appointments').query({ to });
+    expect(res.status).toBe(200);
+    expect(res.body.length).toBe(1);
+    for (const appt of res.body) {
+      expect(new Date(appt.end).getTime()).toBeLessThanOrEqual(new Date(to).getTime());
+    }
+  });
+
+  test('filters by from and to date', async () => {
+    const from = isoPlus(30);
+    const to = isoPlus(120);
+    const res = await request(app).get('/appointments').query({ from, to });
+    expect(res.status).toBe(200);
+    expect(res.body.length).toBe(1);
+    for (const appt of res.body) {
+      expect(new Date(appt.start).getTime()).toBeGreaterThanOrEqual(new Date(from).getTime());
+      expect(new Date(appt.end).getTime()).toBeLessThanOrEqual(new Date(to).getTime());
+    }
   });
 });

@@ -37,3 +37,20 @@ export function createAppointment(row: Omit<Appointment, 'id' | 'createdAt'>): A
   }
   return { id, clinicianId: row.clinicianId, patientId: row.patientId, start: row.start, end: row.end, createdAt };
 }
+
+export function getAllAppointments(from?: string, to?: string): Appointment[] {
+  let query = 'SELECT * FROM appointments';
+  const params: string[] = [];
+  if (from && to) {
+    query += ' WHERE start >= ? AND end <= ?';
+    params.push(from, to);
+  } else if (from) {
+    query += ' WHERE start >= ?';
+    params.push(from);
+  } else if (to) {
+    query += ' WHERE end <= ?';
+    params.push(to);
+  }
+  query += ' ORDER BY start ASC';
+  return db.prepare(query).all(...params) as Appointment[];
+}

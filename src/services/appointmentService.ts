@@ -1,5 +1,5 @@
 import { parseIsoToUtcString, isStrictlyBefore, nowUtcIso } from '../utils/date';
-import { ensureClinician, ensurePatient, hasOverlap, createAppointment } from '../models/appointments';
+import { ensureClinician, ensurePatient, hasOverlap, createAppointment, getAllAppointments } from '../models/appointments';
 import { Appointment } from '../types/types';
 
 export class BadRequest extends Error { status = 400; }
@@ -11,6 +11,10 @@ export type CreateAppointmentInput = {
   start: string;
   end: string;
 };
+
+export function getAppointmentsInRange(from?: string, to?: string): Appointment[] {
+  return getAllAppointments(from, to);
+}
 
 export function createAppointmentForPatient(input: CreateAppointmentInput): Appointment {
   const startIso = parseIsoToUtcString(input.start);
