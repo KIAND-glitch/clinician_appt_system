@@ -10,6 +10,13 @@ export function ensureClinician(id: string) {
   db.prepare('INSERT OR IGNORE INTO clinicians (id) VALUES (?)').run(id);
 }
 
+export type AppointmentInsert = {
+  clinicianId: string;
+  patientId: string;
+  start: string; 
+  end: string;
+};
+
 export function hasOverlap(clinicianId: string, start: string, end: string): boolean {
   const row = db.prepare(
     `SELECT 1 FROM appointments
@@ -19,41 +26,56 @@ export function hasOverlap(clinicianId: string, start: string, end: string): boo
   return !!row;
 }
 
-export function createAppointment(row: Omit<Appointment, 'id' | 'createdAt'>): AppointmentEntity {
-	const id = randomUUID();
-	const createdAt = new Date().toISOString();
-	const data = { ...row, id, createdAt };
-	AppointmentSchema.parse(data);
-	db.prepare(
-		`INSERT INTO appointments (id, clinician_id, patient_id, start, end, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?)`
-	).run(id, row.clinicianId, row.patientId, row.start, row.end, createdAt);
-	return new AppointmentEntity(data);
+export function createAppointment(input: AppointmentInsert): Appointment {
+  const id = randomUUID();
+  const createdAt = new Date().toISOString();
+
+  const appt: Appointment = {
+    id,
+    clinicianId: input.clinicianId,
+    patientId: input.patientId,
+    start: input.start,
+    end: input.end,
+    createdAt,
+  };
+
+  AppointmentSchema.parse(appt);
+
+
+  db.prepare(
+    `INSERT INTO appointments (id, clinician_id, patient_id, start, end, created_at)
+     VALUES (?, ?, ?, ?, ?, ?)`
+  ).run(id, input.clinicianId, input.patientId, input.start, input.end, createdAt);
+
+  return appt;
 }
 
-export function getAllAppointments(from?: string, to?: string): AppointmentEntity[] {
-	let query = 'SELECT * FROM appointments';
-	const params: string[] = [];
-	if (from && to) {
-		query += ' WHERE start >= ? AND end <= ?';
-		params.push(from, to);
-	} else if (from) {
-		query += ' WHERE start >= ?';
-		params.push(from);
-	} else if (to) {
-		query += ' WHERE end <= ?';
-		params.push(to);
-	}
-	query += ' ORDER BY start ASC';
-	const rows = db.prepare(query).all(...params);
-	return rows.map((row: any) =>
-		new AppointmentEntity(
-			AppointmentSchema.parse({
-				...row,
-				clinicianId: row.clinician_id,
-				patientId: row.patient_id,
-				createdAt: row.created_at,
-			})
-		)
-	);
+
+export function getAllAppointments(from?: string, to?: string): Appointment[] {
+  let sql =
+    `SELECT
+       id,
+       clinician_id AS clinicianId,
+       patient_id  AS patientId,
+       start,
+       end,
+       created_at  AS createdAt
+     FROM appointments`;
+  const params: any[] = [];
+
+  if (from && to) {
+    sql += ' WHERE start >= ? AND start < ?';
+    params.push(from, to);
+  } else if (from) {
+    sql += ' WHERE start >= ?';
+    params.push(from);
+  } else if (to) {
+    sql += ' WHERE start < ?';
+    params.push(to);
+  }
+
+  sql += ' ORDER BY start ASC';
+
+  const rows = db.prepare(sql).all(...params) as Appointment[];
+  return rows.map(r => AppointmentSchema.parse(r));
 }

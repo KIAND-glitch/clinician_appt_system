@@ -1,3 +1,7 @@
+import { z } from 'zod';
+
+export const IsoString = z.string().refine(v => !Number.isNaN(Date.parse(v)), { message: 'Invalid ISO date' });
+
 export function parseIsoToUtcString(input: string): string | null {
     const d = new Date(input);
     if (Number.isNaN(d.getTime())) return null;

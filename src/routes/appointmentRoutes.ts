@@ -3,28 +3,34 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { validate } from '../middlewares/validate';
 import { requireRole } from '../middlewares/auth';
-import * as controller from '../controllers/appointmentController';
+import * as appointmentController from '../controllers/appointmentController';
+import { AppointmentCreateSchema } from '../entities/appointment';
+import { IsoString } from '../utils/date';
 
 
 const router = Router();
 
-// Zod schema for GET query params
-const isIsoDate = (val: string) => !isNaN(Date.parse(val));
 const getQuery = z.object({
-  from: z.string().optional().refine(val => !val || isIsoDate(val), { message: 'Invalid ISO date' }),
-  to: z.string().optional().refine(val => !val || isIsoDate(val), { message: 'Invalid ISO date' }),
+  from: IsoString.optional(),
+  to:   IsoString.optional(),
 });
 
-router.get('/appointments', requireRole(['admin']), validate({ query: getQuery }), controller.get);
+router.get('/appointments',
+  requireRole(['admin']),
+  validate({ query: getQuery }),
+  appointmentController.get);
 
-// Zod schema for the POST body
 const createBody = z.object({
   clinicianId: z.string().min(1),
   patientId: z.string().min(1),
-  start: z.string().refine(isIsoDate, { message: 'Invalid ISO date' }),
-  end: z.string().refine(isIsoDate, { message: 'Invalid ISO date' })
+  start: IsoString,
+  end: IsoString,
 });
 
-router.post('/appointments', requireRole(['patient']), validate({ body: createBody }), controller.create);
+router.post(
+  '/appointments',
+  requireRole(['patient', 'admin']),
+  validate({ body: AppointmentCreateSchema }),
+  appointmentController.create);
 
 export default router;
