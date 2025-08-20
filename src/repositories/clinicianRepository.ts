@@ -9,6 +9,9 @@ export function isClinician(clinicianId: string): boolean {
 export function getAppointmentsByClinician(clinicianId: string, from?: string, to?: string): AppointmentEntity[] {
     let query = 'SELECT * FROM appointments WHERE clinician_id = ?';
     const params: any[] = [clinicianId];
+
+    const now = new Date().toISOString();
+
     if (from && to) {
         query += ' AND start >= ? AND end <= ?';
         params.push(from, to);
@@ -16,9 +19,13 @@ export function getAppointmentsByClinician(clinicianId: string, from?: string, t
         query += ' AND start >= ?';
         params.push(from);
     } else if (to) {
-        query += ' AND end <= ?';
-        params.push(to);
+        query += ' AND end <= ? AND start >= ?';
+        params.push(to, now);
+    } else {
+        query += ' AND start >= ?';
+        params.push(now);
     }
+
     query += ' ORDER BY start ASC';
     const rows = db.prepare(query).all(...params);
     return rows.map((row: any) =>

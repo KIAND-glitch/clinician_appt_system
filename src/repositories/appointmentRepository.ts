@@ -51,31 +51,35 @@ export function createAppointment(input: AppointmentInsert): Appointment {
 }
 
 
-export function getAllAppointments(from?: string, to?: string): Appointment[] {
-  let sql =
-    `SELECT
-       id,
-       clinician_id AS clinicianId,
-       patient_id  AS patientId,
-       start,
-       end,
-       created_at  AS createdAt
-     FROM appointments`;
-  const params: any[] = [];
+export function getUpcomingAppointments(from?: string, to?: string): Appointment[] {
+	let sql =
+		`SELECT
+			 id,
+			 clinician_id AS clinicianId,
+			 patient_id  AS patientId,
+			 start,
+			 end,
+			 created_at  AS createdAt
+		 FROM appointments`;
+	const params: any[] = [];
 
-  if (from && to) {
-    sql += ' WHERE start >= ? AND start < ?';
-    params.push(from, to);
-  } else if (from) {
-    sql += ' WHERE start >= ?';
-    params.push(from);
-  } else if (to) {
-    sql += ' WHERE start < ?';
-    params.push(to);
-  }
+	if (!from) {
+		const now = new Date().toISOString();
+		sql += ' WHERE start >= ?';
+		params.push(now);
+	} 
 
-  sql += ' ORDER BY start ASC';
+	if (from) {
+		sql += ' AND start >= ?';
+		params.push(from);
+	}
+	if (to) {
+		sql += ' AND start < ?';
+		params.push(to);
+	}
 
-  const rows = db.prepare(sql).all(...params) as Appointment[];
-  return rows.map(r => AppointmentSchema.parse(r));
+	sql += ' ORDER BY start ASC';
+
+	const rows = db.prepare(sql).all(...params) as Appointment[];
+	return rows.map(r => AppointmentSchema.parse(r));
 }
