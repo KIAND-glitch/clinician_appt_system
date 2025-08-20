@@ -10,42 +10,15 @@ const router = Router();
 const getQuery = z.object({
   from: IsoString.optional(),
   to:   IsoString.optional(),
+}).superRefine((val, ctx) => {
+  if (val.from && val.to) {
+    const f = Date.parse(val.from);
+    const t = Date.parse(val.to);
+    if (f > t) ctx.addIssue({ code: 'custom', path: ['from'], message: 'from must be before to' });
+  }
 });
 const clinicianParams = z.object({ id: z.string().min(1) });
 
-/**
- * @openapi
- * /clinicians/{id}/appointments:
- *   get:
- *     summary: List a clinician's upcoming appointments
- *     tags:
- *       - clinicians
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *       - in: query
- *         name: from
- *         schema:
- *           type: string
- *           format: date-time
- *       - in: query
- *         name: to
- *         schema:
- *           type: string
- *           format: date-time
- *     responses:
- *       200:
- *         description: A list of appointments for the clinician
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/Appointment'
- */
 router.get(
   '/clinicians/:id/appointments',
   requireRole(['clinician','admin']),
