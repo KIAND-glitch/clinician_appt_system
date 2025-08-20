@@ -1,4 +1,3 @@
-
 import { db } from '../config/db';
 import { randomUUID } from 'node:crypto';
 import { AppointmentEntity, Appointment, AppointmentSchema } from '../entities/appointment';

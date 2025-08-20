@@ -7,7 +7,6 @@ import * as controller from '../controllers/appointmentController';
 
 const router = Router();
 
-
 // Zod schema for GET query params
 const isIsoDate = (val: string) => !isNaN(Date.parse(val));
 const getQuery = z.object({
