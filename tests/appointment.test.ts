@@ -20,174 +20,210 @@ afterAll(() => {
 });
 
 describe('POST /appointments (patient booking)', () => {
-  test('201 creates an appointment', async () => {
-    const res = await request(app)
-      .post('/appointments')
-      .set('Content-Type', 'application/json')
-      .send({
-        clinicianId: 'c1',
-        patientId: 'p1',
-        start: isoPlus(0),
-        end: isoPlus(30),
-      });
+    test('201 creates an appointment', async () => {
+        const res = await request(app)
+            .post('/appointments')
+            .set('Content-Type', 'application/json')
+            .set('X-Role', 'patient')
+            .send({
+                clinicianId: 'c1',
+                patientId: 'p1',
+                start: isoPlus(0),
+                end: isoPlus(30),
+            });
 
-    expect(res.status).toBe(201);
-    expect(res.body).toMatchObject({ clinicianId: 'c1', patientId: 'p1' });
-    expect(new Date(res.body.start).getTime()).toBeLessThan(new Date(res.body.end).getTime());
-  });
-
-  test('409 rejects overlapping appointment for same clinician', async () => {
-    // Seed: [0, 30)
-    await request(app).post('/appointments').send({
-      clinicianId: 'c1',
-      patientId: 'p1',
-      start: isoPlus(0),
-      end: isoPlus(30),
+        expect(res.status).toBe(201);
+        expect(res.body).toMatchObject({ clinicianId: 'c1', patientId: 'p1' });
+        expect(new Date(res.body.start).getTime()).toBeLessThan(new Date(res.body.end).getTime());
     });
 
-    // Overlap: [15, 45)
-    const res = await request(app).post('/appointments').send({
-      clinicianId: 'c1',
-      patientId: 'p2',
-      start: isoPlus(15),
-      end: isoPlus(45),
+    test('409 rejects overlapping appointment for same clinician', async () => {
+        // Seed: [0, 30)
+        await request(app).post('/appointments')
+            .set('X-Role', 'patient')
+            .send({
+                clinicianId: 'c1',
+                patientId: 'p1',
+                start: isoPlus(0),
+                end: isoPlus(30),
+            });
+
+        // Overlap: [15, 45)
+        const res = await request(app).post('/appointments')
+            .set('X-Role', 'patient')
+            .send({
+                clinicianId: 'c1',
+                patientId: 'p2',
+                start: isoPlus(15),
+                end: isoPlus(45),
+            });
+
+        expect(res.status).toBe(409);
+        expect(res.body.message).toMatch(/overlap/i);
     });
 
-    expect(res.status).toBe(409);
-    expect(res.body.message).toMatch(/overlap/i);
-  });
+    test('201 allows touching at endpoint (end == other.start)', async () => {
+        // First: [0, 30)
+        await request(app).post('/appointments')
+            .set('X-Role', 'patient')
+            .send({
+                clinicianId: 'c1',
+                patientId: 'p1',
+                start: isoPlus(0),
+                end: isoPlus(30),
+            });
 
-  test('201 allows touching at endpoint (end == other.start)', async () => {
-    // First: [0, 30)
-    await request(app).post('/appointments').send({
-      clinicianId: 'c1',
-      patientId: 'p1',
-      start: isoPlus(0),
-      end: isoPlus(30),
+        // Touching: [30, 60)
+        const res = await request(app).post('/appointments')
+            .set('X-Role', 'patient')
+            .send({
+                clinicianId: 'c1',
+                patientId: 'p3',
+                start: isoPlus(30),
+                end: isoPlus(60),
+            });
+
+        expect(res.status).toBe(201);
     });
 
-    // Touching: [30, 60)
-    const res = await request(app).post('/appointments').send({
-      clinicianId: 'c1',
-      patientId: 'p3',
-      start: isoPlus(30),
-      end: isoPlus(60),
+    test('201 allows same slot for different clinician', async () => {
+        // c1: [0, 30)
+        await request(app).post('/appointments')
+            .set('X-Role', 'patient')
+            .send({
+                clinicianId: 'c1',
+                patientId: 'p1',
+                start: isoPlus(0),
+                end: isoPlus(30),
+            });
+
+        // c2 same time: [0, 30)
+        const res = await request(app).post('/appointments')
+            .set('X-Role', 'patient')
+            .send({
+                clinicianId: 'c2',
+                patientId: 'p2',
+                start: isoPlus(0),
+                end: isoPlus(30),
+            });
+
+        expect(res.status).toBe(201);
     });
 
-    expect(res.status).toBe(201);
-  });
+    test('400 when start/end are not valid ISO datetimes', async () => {
+        const res = await request(app).post('/appointments')
+            .set('X-Role', 'patient')
+            .send({
+                clinicianId: 'c1',
+                patientId: 'p1',
+                start: 'not-a-date',
+                end: isoPlus(30),
+            });
 
-  test('201 allows same slot for different clinician', async () => {
-    // c1: [0, 30)
-    await request(app).post('/appointments').send({
-      clinicianId: 'c1',
-      patientId: 'p1',
-      start: isoPlus(0),
-      end: isoPlus(30),
+        expect(res.status).toBe(400);
+        expect(res.body.message).toMatch(/valid ISO/i);
     });
 
-    // c2 same time: [0, 30)
-    const res = await request(app).post('/appointments').send({
-      clinicianId: 'c2',
-      patientId: 'p2',
-      start: isoPlus(0),
-      end: isoPlus(30),
+    test('400 when start is not strictly before end (zero-length)', async () => {
+        const t = isoPlus(10);
+        const res = await request(app).post('/appointments')
+            .set('X-Role', 'patient')
+            .send({
+                clinicianId: 'c1',
+                patientId: 'p1',
+                start: t,
+                end: t,
+            });
+
+        expect(res.status).toBe(400);
+        expect(res.body.message).toMatch(/strictly before/i);
     });
 
-    expect(res.status).toBe(201);
-  });
+    test('400 when appointment is in the past', async () => {
+        const pastStart = new Date(Date.now() - 60 * 60 * 1000).toISOString(); // -1h
+        const pastEnd   = new Date(Date.now() - 30 * 60 * 1000).toISOString(); // -30m
+        const res = await request(app).post('/appointments')
+            .set('X-Role', 'patient')
+            .send({
+                clinicianId: 'c1',
+                patientId: 'p1',
+                start: pastStart,
+                end: pastEnd,
+            });
 
-  test('400 when start/end are not valid ISO datetimes', async () => {
-    const res = await request(app).post('/appointments').send({
-      clinicianId: 'c1',
-      patientId: 'p1',
-      start: 'not-a-date',
-      end: isoPlus(30),
+        expect(res.status).toBe(400);
+        expect(res.body.message).toMatch(/past/i);
     });
-
-    expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/valid ISO/i);
-  });
-
-  test('400 when start is not strictly before end (zero-length)', async () => {
-    const t = isoPlus(10);
-    const res = await request(app).post('/appointments').send({
-      clinicianId: 'c1',
-      patientId: 'p1',
-      start: t,
-      end: t,
-    });
-
-    expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/strictly before/i);
-  });
-
-  test('400 when appointment is in the past', async () => {
-    const pastStart = new Date(Date.now() - 60 * 60 * 1000).toISOString(); // -1h
-    const pastEnd   = new Date(Date.now() - 30 * 60 * 1000).toISOString(); // -30m
-    const res = await request(app).post('/appointments').send({
-      clinicianId: 'c1',
-      patientId: 'p1',
-      start: pastStart,
-      end: pastEnd,
-    });
-
-    expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/past/i);
-  });
 });
 
 
 describe('GET /appointments (admin)', () => {
-  beforeEach(async () => {
-    // Seed some appointments
-    await request(app).post('/appointments').send({
-      clinicianId: 'c1', patientId: 'p1', start: isoPlus(0), end: isoPlus(30)
+    beforeEach(async () => {
+        // Seed some appointments
+        await request(app).post('/appointments')
+            .set('X-Role', 'patient')
+            .send({
+                clinicianId: 'c1', patientId: 'p1', start: isoPlus(0), end: isoPlus(30)
+            });
+        await request(app).post('/appointments')
+            .set('X-Role', 'patient')
+            .send({
+                clinicianId: 'c2', patientId: 'p2', start: isoPlus(60), end: isoPlus(90)
+            });
+        await request(app).post('/appointments')
+            .set('X-Role', 'patient')
+            .send({
+                clinicianId: 'c1', patientId: 'p3', start: isoPlus(120), end: isoPlus(150)
+            });
     });
-    await request(app).post('/appointments').send({
-      clinicianId: 'c2', patientId: 'p2', start: isoPlus(60), end: isoPlus(90)
+
+    test('returns all appointments', async () => {
+        const res = await request(app)
+            .get('/appointments')
+            .set('X-Role', 'admin');
+        expect(res.status).toBe(200);
+        expect(Array.isArray(res.body)).toBe(true);
+        expect(res.body.length).toBe(3);
     });
-    await request(app).post('/appointments').send({
-      clinicianId: 'c1', patientId: 'p3', start: isoPlus(120), end: isoPlus(150)
+
+    test('filters by from date', async () => {
+        const from = isoPlus(60);
+        const res = await request(app)
+            .get('/appointments')
+            .set('X-Role', 'admin')
+            .query({ from });
+        expect(res.status).toBe(200);
+        expect(res.body.length).toBe(2);
+        for (const appt of res.body) {
+            expect(new Date(appt.start).getTime()).toBeGreaterThanOrEqual(new Date(from).getTime());
+        }
     });
-  });
 
-  test('returns all appointments', async () => {
-    const res = await request(app).get('/appointments');
-    expect(res.status).toBe(200);
-    expect(Array.isArray(res.body)).toBe(true);
-    expect(res.body.length).toBe(3);
-  });
+    test('filters by to date', async () => {
+        const to = isoPlus(60);
+        const res = await request(app)
+            .get('/appointments')
+            .set('X-Role', 'admin')
+            .query({ to });
+        expect(res.status).toBe(200);
+        expect(res.body.length).toBe(1);
+        for (const appt of res.body) {
+            expect(new Date(appt.end).getTime()).toBeLessThanOrEqual(new Date(to).getTime());
+        }
+    });
 
-  test('filters by from date', async () => {
-    const from = isoPlus(60);
-    const res = await request(app).get('/appointments').query({ from });
-    expect(res.status).toBe(200);
-    expect(res.body.length).toBe(2);
-    for (const appt of res.body) {
-      expect(new Date(appt.start).getTime()).toBeGreaterThanOrEqual(new Date(from).getTime());
-    }
-  });
-
-  test('filters by to date', async () => {
-    const to = isoPlus(60);
-    const res = await request(app).get('/appointments').query({ to });
-    expect(res.status).toBe(200);
-    expect(res.body.length).toBe(1);
-    for (const appt of res.body) {
-      expect(new Date(appt.end).getTime()).toBeLessThanOrEqual(new Date(to).getTime());
-    }
-  });
-
-  test('filters by from and to date', async () => {
-    const from = isoPlus(30);
-    const to = isoPlus(120);
-    const res = await request(app).get('/appointments').query({ from, to });
-    expect(res.status).toBe(200);
-    expect(res.body.length).toBe(1);
-    for (const appt of res.body) {
-      expect(new Date(appt.start).getTime()).toBeGreaterThanOrEqual(new Date(from).getTime());
-      expect(new Date(appt.end).getTime()).toBeLessThanOrEqual(new Date(to).getTime());
-    }
-  });
+    test('filters by from and to date', async () => {
+        const from = isoPlus(30);
+        const to = isoPlus(120);
+        const res = await request(app)
+            .get('/appointments')
+            .set('X-Role', 'admin')
+            .query({ from, to });
+        expect(res.status).toBe(200);
+        expect(res.body.length).toBe(1);
+        for (const appt of res.body) {
+            expect(new Date(appt.start).getTime()).toBeGreaterThanOrEqual(new Date(from).getTime());
+            expect(new Date(appt.end).getTime()).toBeLessThanOrEqual(new Date(to).getTime());
+        }
+    });
 });

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { validate } from '../middlewares/validate';
+import { requireRole } from '../middlewares/auth';
 import * as clinicianController from '../controllers/clinicianController';
 
 const router = Router();
@@ -12,6 +13,6 @@ const getQuery = z.object({
 });
 const clinicianParams = z.object({ id: z.string().min(1) });
 
-router.get('/clinicians/:id/appointments', validate({ params: clinicianParams, query: getQuery }), clinicianController.getAppointments);
+router.get('/clinicians/:id/appointments', requireRole(['clinician']), validate({ params: clinicianParams, query: getQuery }), clinicianController.getAppointments);
 
 export default router;
