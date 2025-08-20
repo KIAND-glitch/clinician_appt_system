@@ -8,11 +8,9 @@ export function parseIsoToUtcString(input: string): string | null {
     return d.toISOString();
 }
 
-
 export function isStrictlyBefore(aIso: string, bIso: string): boolean {
     return new Date(aIso).getTime() < new Date(bIso).getTime();
 }
-
 
 export function nowUtcIso(): string {
     return new Date().toISOString();

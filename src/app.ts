@@ -3,17 +3,25 @@ import cors from 'cors';
 import appointmentRoutes from './routes/appointmentRoutes';
 import clinicianRoutes from './routes/clinicianRoutes';
 
-export const app = express();
-app.use(cors());
-app.use(express.json());
+export function createApp() {
+  const app = express();
 
-app.get('/', (_req, res) => res.json({ ok: true }));
+  app.use(cors());
+  app.use(express.json());
 
-app.use('/', appointmentRoutes);
-app.use('/', clinicianRoutes);
+  app.use('/', appointmentRoutes);
+  app.use('/', clinicianRoutes);
 
-app.use((err: any, _req: any, res: any, _next: any) => {
-  const status = err?.status ?? 500;
-  const message = err?.message ?? 'internal error';
-  res.status(status).json({ message });
-});
+  app.use((_req, _res, next) => next({ status: 404, message: 'route does not exist' }));
+
+  app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    if (res.headersSent) return;
+    const status = typeof err?.status === 'number' ? err.status : 500;
+    const message = typeof err?.message === 'string' ? err.message : 'internal error';
+    res.status(status).json({ message });
+  });
+
+  return app;
+}
+
+export const app = createApp();
