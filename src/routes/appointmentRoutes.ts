@@ -1,7 +1,7 @@
 
 import { Router } from 'express';
 import { z } from 'zod';
-import { validate } from '../middleware/validate';
+import { validate } from '../middlewares/validate';
 import * as controller from '../controllers/appointmentController';
 
 

@@ -1,6 +1,6 @@
 import { parseIsoToUtcString, isStrictlyBefore, nowUtcIso } from '../utils/date';
-import { ensureClinician, ensurePatient, hasOverlap, createAppointment, getAllAppointments } from '../models/appointments';
-import { Appointment } from '../types/types';
+import { ensureClinician, ensurePatient, hasOverlap, createAppointment, getAllAppointments } from '../repositories/appointmentRepository';
+import { Appointment } from '../entities/appointment';
 
 export class BadRequest extends Error { status = 400; }
 export class Conflict extends Error { status = 409; }
@@ -13,7 +13,7 @@ export type CreateAppointmentInput = {
 };
 
 export function getAppointmentsInRange(from?: string, to?: string): Appointment[] {
-  return getAllAppointments(from, to);
+  return getAllAppointments(from, to).map(entity => entity.data);
 }
 
 export function createAppointmentForPatient(input: CreateAppointmentInput): Appointment {
@@ -43,7 +43,7 @@ export function createAppointmentForPatient(input: CreateAppointmentInput): Appo
       patientId: input.patientId,
       start: startIso,
       end: endIso
-    });
+    }).data;
   } catch (e: any) {
     if (e.code === 'OVERLAP') {
       throw new Conflict('overlapping appointment for clinician');
