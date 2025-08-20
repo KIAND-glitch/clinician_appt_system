@@ -1,6 +1,11 @@
 import { db } from '../config/db';
 import { AppointmentEntity, AppointmentSchema } from '../entities/appointment';
 
+export function isClinician(clinicianId: string): boolean {
+    const row = db.prepare('SELECT 1 FROM clinicians WHERE id = ?').get(clinicianId);
+    return !!row;
+}
+
 export function getAppointmentsByClinician(clinicianId: string, from?: string, to?: string): AppointmentEntity[] {
     let query = 'SELECT * FROM appointments WHERE clinician_id = ?';
     const params: any[] = [clinicianId];
