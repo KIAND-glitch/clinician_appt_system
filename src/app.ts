@@ -1,14 +1,14 @@
 import express from 'express';
 import cors from 'cors';
+import appointmentRoutes from './routes/appointmentRoutes';
 
 export const app = express();
-
 app.use(cors());
 app.use(express.json());
 
-app.get('/', (_req, res) => {
-  res.json({ ok: true });
-});
+app.get('/', (_req, res) => res.json({ ok: true }));
+
+app.use('/', appointmentRoutes);
 
 app.use((err: any, _req: any, res: any, _next: any) => {
   const status = err?.status ?? 500;
