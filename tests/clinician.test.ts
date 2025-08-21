@@ -71,6 +71,6 @@ describe('GET /clinicians/:id/appointments', () => {
     test('400 on invalid from ISO date', async () => {
         const res = await request(app).get('/clinicians/c1/appointments').set('X-Role', 'clinician').query({ from: 'not-a-date' });
         expect(res.status).toBe(400);
-        expect(res.body.message).toMatch(/Invalid ISO date/i);
+        expect(res.body.message).toMatch("Invalid input");
     });
 });

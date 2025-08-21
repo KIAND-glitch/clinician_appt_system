@@ -7,7 +7,9 @@ export const AppointmentCreateSchema = z.object({
   patientId: z.string().min(1),
   start: IsoString,
   end: IsoString,
-}).superRefine((val, ctx) => {
+})
+.strict()
+.superRefine((val, ctx) => {
   const s = Date.parse(val.start);
   const e = Date.parse(val.end);
   if (!(s < e)) {

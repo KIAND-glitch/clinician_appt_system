@@ -2,23 +2,12 @@ import { z, ZodSafeParseError } from 'zod';
 import type { Request, Response, NextFunction } from 'express';
 
 type AnySchema = z.ZodType<any, any, any>;
-
-type Schema = {
-  body?: AnySchema;
-  query?: AnySchema;
-  params?: AnySchema;
-};
+type Schema = { body?: AnySchema; query?: AnySchema; params?: AnySchema };
 
 export function validate(schema: Schema) {
   return (req: Request, res: Response, next: NextFunction) => {
-    const bad = (error: ZodSafeParseError<any>) => {
-      // Try to extract the first error message from Zod error
-      let message = 'Invalid input';
-      const issues = error.error?.issues;
-      if (issues && issues.length > 0 && issues[0].message) {
-        message = issues[0].message;
-      }
-      return res.status(400).json({ message, details: error.error?.flatten?.() });
+    const bad = (_error: ZodSafeParseError<any>) => {
+      return res.status(400).json({ message: 'Invalid input' });
     };
 
     if (schema.body) {
