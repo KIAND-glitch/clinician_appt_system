@@ -74,72 +74,54 @@ components:
           description: Must be after start; touching allowed relative to other appts
       required: [clinicianId, patientId, start, end]
 
-  parameters:
-    FromQuery:
-      in: query
-      name: from
-      schema:
-        type: string
-        format: date-time
-      description: >
-        Lower bound (inclusive). Defaults to **now** if omitted.
-    ToQuery:
-      in: query
-      name: to
-      schema:
-        type: string
-        format: date-time
-      description: >
-        Upper bound (exclusive or inclusive, depending on implementation).
-        Must be after `from` when both provided.
-    LimitQuery:
-      in: query
-      name: limit
-      schema:
-        type: integer
-        minimum: 1
-        maximum: 500
-      required: false
-      description: Optional page size.
-    OffsetQuery:
-      in: query
-      name: offset
-      schema:
-        type: integer
-        minimum: 0
-      required: false
-      description: Optional offset for pagination.
-    RoleHeaderParam:
-      in: header
-      name: X-Role
-      required: true
-      schema:
-        $ref: '#/components/schemas/Role'
-      description: >
-        Role simulation header. Allowed values depend on endpoint.
-        (Alternatively, `?role=` query param may be supported by the server.)
-
 paths:
   /appointments:
     get:
+      tags: [Appointments]
+      operationId: adminListAppointments
       summary: Admin — list upcoming appointments
-      description: Requires admin role. Returns upcoming appointments, optionally filtered by date range.
+      description: Requires **admin** role. Returns upcoming appointments; optional date range filtering.
       security:
         - RoleHeader: []
       parameters:
-        - $ref: '#/components/parameters/RoleHeaderParam'
-        - $ref: '#/components/parameters/FromQuery'
-        - $ref: '#/components/parameters/ToQuery'
-        - $ref: '#/components/parameters/LimitQuery'
-        - $ref: '#/components/parameters/OffsetQuery'
+        - in: header
+          name: X-Role
+          required: true
+          description: Must be **admin** for this endpoint.
+          schema:
+            $ref: '#/components/schemas/Role'
+        - in: query
+          name: from
+          required: false
+          description: Lower bound (inclusive). Defaults to **now** if omitted.
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: to
+          required: false
+          description: Upper bound (exclusive/inclusive per implementation). Must be after `from` when both provided.
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: limit
+          required: false
+          description: Optional page size.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+        - in: query
+          name: offset
+          required: false
+          description: Optional offset for pagination.
+          schema:
+            type: integer
+            minimum: 0
       responses:
         '200':
           description: OK
-          headers:
-            Content-Type:
-              schema:
-                type: string
-                example: application/json
           content:
             application/json:
               schema:
@@ -158,14 +140,27 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+      x-codeSamples:
+        - lang: Bash
+          label: curl
+          source: |
+            curl -s -X GET "http://localhost:3000/appointments?from=2025-10-21T00:00:00.000Z&to=2025-10-21T23:59:59.999Z" \
+              -H "X-Role: admin" | jq
 
     post:
-      summary: Patient — create an appointment
-      description: Requires patient role. Prevents overlapping appointments for the same clinician.
+      tags: [Appointments]
+      operationId: createAppointment
+      summary: Patient/Admin — create an appointment
+      description: "Allowed roles: **patient**, **admin**. Prevents overlapping appointments for the same clinician."
       security:
         - RoleHeader: []
       parameters:
-        - $ref: '#/components/parameters/RoleHeaderParam'
+        - in: header
+          name: X-Role
+          required: true
+          description: "Role simulation header. Allowed: **patient**, **admin**."
+          schema:
+            $ref: '#/components/schemas/Role'
       requestBody:
         required: true
         content:
@@ -178,8 +173,8 @@ paths:
                 value:
                   clinicianId: c1
                   patientId: p1
-                  start: 2025-08-21T13:00:00+10:00
-                  end: 2025-08-21T13:30:00+10:00
+                  start: 2025-10-21T03:00:00.000Z
+                  end: 2025-10-21T03:30:00.000Z
       responses:
         '201':
           description: Created
@@ -188,43 +183,75 @@ paths:
               schema:
                 $ref: '#/components/schemas/Appointment'
         '400':
-          description: Invalid input (bad ISO, start>=end, past)
+          description: Invalid input (missing fields, invalid ISO, start>=end, or appointment in the past)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '403':
-          description: Forbidden (role missing or not patient)
+          description: Forbidden (role missing or not in [patient, admin])
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
-          description: Overlap detected for clinician
+          description: Conflict — requested slot overlaps an existing appointment for the same clinician
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+      x-codeSamples:
+        - lang: Bash
+          label: curl
+          source: |
+            curl -s -X POST http://localhost:3000/appointments \
+              -H "Content-Type: application/json" \
+              -H "X-Role: patient" \
+              -d '{
+                "clinicianId":"c1",
+                "patientId":"p1",
+                "start":"2025-10-21T03:00:00.000Z",
+                "end":"2025-10-21T03:30:00.000Z"
+              }' | jq
 
   /clinicians/{id}/appointments:
     get:
-      summary: Clinician — list upcoming appointments
-      description: Requires clinician or admin role. Defaults to start >= now if `from` omitted.
+      tags: [Clinicians]
+      operationId: clinicianListAppointments
+      summary: Clinician/Admin — list clinician’s upcoming appointments
+      description: "Allowed roles: **clinician**, **admin**. Defaults to start ≥ now if `from` is omitted."
       security:
         - RoleHeader: []
       parameters:
-        - $ref: '#/components/parameters/RoleHeaderParam'
+        - in: header
+          name: X-Role
+          required: true
+          description: "Role simulation header. Allowed: **clinician**, **admin**."
+          schema:
+            $ref: '#/components/schemas/Role'
         - in: path
           name: id
           required: true
+          description: Clinician ID
           schema:
             type: string
-          description: Clinician ID
-        - $ref: '#/components/parameters/FromQuery'
-        - $ref: '#/components/parameters/ToQuery'
+        - in: query
+          name: from
+          required: false
+          description: Lower bound (inclusive). Defaults to **now** if omitted.
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: to
+          required: false
+          description: Upper bound (exclusive/inclusive per implementation). Must be after `from` when both provided.
+          schema:
+            type: string
+            format: date-time
       responses:
         '200':
-          description: OK
+          description: OK (appointments for the clinician; empty array if none)
           content:
             application/json:
               schema:
@@ -243,3 +270,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not Found (clinician does not exist)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      x-codeSamples:
+        - lang: Bash
+          label: curl
+          source: |
+            curl -s -X GET "http://localhost:3000/clinicians/c1/appointments?from=2025-10-21T00:00:00.000Z&to=2025-10-21T23:59:59.999Z" \
+              -H "X-Role: clinician" | jq

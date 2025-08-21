@@ -4,11 +4,21 @@ A simple TypeScript + Express REST API that manages clinician appointments using
 
 This README explains the repository structure, the tech stack used, the API endpoints, role-based authorisation (no authentication), and how the system prevents overlapping appointments (concurrency safety).
 
+## Running the project
+
+- Clone the repo `git clone https://github.com/KIAND-glitch/clinician_appt_system.git`
+- Install deps: `npm install`
+- Dev server: `npm run dev` (uses `ts-node-dev`)
+- Build: `npm run build`
+- Run tests: `npm test` (Jest + Supertest). Tests use `process.env.DB_PATH = ':memory:'` so they run against an in-memory SQLite instance.
+- API docs (Swagger UI): `GET /docs` when the server is running
+
+
 ## Repo structure
 
 - `package.json`, `tsconfig.json`, `README.md` - project metadata and build config
 - `src/`
-    - `config/` - database setup initialization (`db.ts`)
+    - `config/` - database setup initialisation (`db.ts`)
 	- `app.ts` - Express app factory and global middleware
 	- `server.ts` - Process entry that starts the server
 	- `routes/` - Maps API endpoints to controller methods
@@ -23,12 +33,12 @@ This README explains the repository structure, the tech stack used, the API endp
 
 ## Tech stack
 
-- TypeScript
-- Express
-- SQLite (via `better-sqlite3`)
-- Zod for schema validation
-- Jest + Supertest for tests
-- Swagger UI (`/docs`) for API documentation
+- **TypeScript** — Strongly typed JavaScript for safer, maintainable code.
+- **Express** — Minimalist web framework for building REST APIs.
+- **SQLite (via `better-sqlite3`)** — Embedded, fast, zero-config SQL database.
+- **Zod for schema validation** — Ensures request/response data is well-formed.
+- **Jest + Supertest for tests** — Automated integration and API endpoint testing.
+- **Swagger UI (`/docs`) for API documentation** — Interactive, auto-generated API docs.
 
 ## Authorisation
 
@@ -73,7 +83,10 @@ All datetimes are ISO 8601 strings (e.g. `2025-08-20T15:30:00.000Z`). Invalid IS
 	- Allowed roles: `clinician`, `admin`
 	- Path param: `id` (clinician id)
 	- Optional query params: `from` (ISO datetime), `to` (ISO datetime)
-	- Returns: `200 OK` array of appointments for that clinician (filtered by optional from/to) or an empty array if the clinician does not exist or has no appointments.
+	- Responses:
+    -  `200 OK` array of appointments for that clinician (filtered by optional from/to) or an empty array if the clinician has no appointments.
+    -  `404 Not Found` if the clinician does not exist.
+    -  `400 Bad Request` if the query parameters are invalid.
     - Example curl request
     ```bash
         curl -s -X GET http://localhost:3000/clinicians/c1/appointments \
@@ -87,7 +100,9 @@ All datetimes are ISO 8601 strings (e.g. `2025-08-20T15:30:00.000Z`). Invalid IS
 - GET /appointments
 	- Allowed roles: `admin`
 	- Optional query params: `from` (ISO datetime), `to` (ISO datetime)
-	- Returns: `200 OK` array of appointments (filtered by optional from/to)
+	- Responses:
+		- `200 OK` array of appointments (filtered by optional from/to)
+		- `400 Bad Request` if the query parameters are invalid.
     - Example curl request
     ```bash
         curl -s -X GET http://localhost:3000/appointments \
@@ -115,7 +130,7 @@ There are **two layers**:
    - If found → **409 Conflict**, this gives users a clear error without relying on a DB failure.
 
 2. **Authoritative DB-level guard (trigger)**
-   - A SQLite `BEFORE INSERT` and `BEFORE UPDATE` trigger re-checks the same condition and **aborts** the write if an overlap exists.
+   - A SQLite `BEFORE INSERT` trigger re-checks the same condition and **aborts** the write if an overlap exists.
    - This protects against the case where multiple requests pass the pre-check concurrently.
 
 > Even if N clients POST the same slot at once and all pass the pre-check, **exactly one** insert will succeed; the rest will be aborted by the trigger. The concurrency test fires many parallel POSTs and asserts one `201` and the rest `409`, and that the DB has **exactly one** row for that slot.
@@ -143,15 +158,6 @@ To make the entire operation atomic and fully race-safe, wrap the related statem
 
 ## Design Decisions, Trade-offs & Limits
 
-### Stack
-- **TypeScript + Express** — small, familiar surface; easy to test.
-- **SQLite via `better-sqlite3`** — zero-config local DB, fast and reliable for a single process.
-- **Zod** — input validation at the edge with clear `400` errors.
-- **Jest + Supertest** — integration tests against the real app & in-memory DB.
-- **Swagger UI** — `/docs` for interactive API browsing.
-
----
-
 ### Data model
 - **appointments** (has schema & rules)
   - Fields: `id (uuid)`, `clinicianId`, `patientId`, `start (ISO)`, `end (ISO)`, `createdAt (ISO)`.
@@ -178,22 +184,18 @@ To make the entire operation atomic and fully race-safe, wrap the related statem
 
 ---
 
-### GET endpoints & error semantics (intentional)
-For **privacy and UX**, the GET endpoints **do not leak existence** of clinicians/patients:
-- `GET /clinicians/{id}/appointments` returns **`200` with an array** (possibly empty) even if the clinician ID doesn’t exist yet.
-- `GET /appointments` (admin) returns **`200` with an array** filtered by `from`/`to`.  
-- Invalid input (bad ISO, `from > to`) still yields **`400`**. Authorization failures yield **`403`**.
+### Error semantics (intentional)
 
-This choice avoids allowing clients to probe which clinician IDs exist via status codes.
+- Invalid input (bad ISO, `from > to`, zero or negative durations) still yields **`400`**. Authorization failures yield **`403`** for all endpoints.
 
 ---
 
 ### Operational considerations
 - **Single-process sweet spot**: `better-sqlite3` is synchronous; great for local/dev and small single-node deployments.
 - **Race safety**: overlap invariant is enforced at the **database** via trigger; multiple concurrent creates for the same slot → exactly one success, others rejected.
-- **Schema bootstrapping**: tables created at startup. Migrations are out of scope in this challenge (see Future work).
+- **Schema bootstrapping**: tables created at startup. .
 - **Times**: always stored and returned as **ISO-8601 UTC** strings to keep text comparisons correct and predictable.
-
+- Conversion to local time zones should be handled by the client.
 ---
 
 ### Future work
@@ -204,14 +206,40 @@ This choice avoids allowing clients to probe which clinician IDs exist via statu
 - **Scaling DB**: move to Postgres for multi-instance deployments; consider an **exclusion constraint** on the time range per clinician.
 - **Observability**: structured logs, request IDs, and basic metrics.
 
+## Tests (`npm test`)
 
-## Running the project
 
-- Install deps: `npm install`
-- Dev server: `npm run dev` (uses `ts-node-dev`)
-- Build: `npm run build`
-- Run tests: `npm test` (Jest + Supertest). Tests use `process.env.DB_PATH = ':memory:'` so they run against an in-memory SQLite instance.
-- API docs (Swagger UI): `GET /docs` when the server is running
+**Framework:** Jest + Supertest against the real Express app and real SQL (no mocks).  
+**DB:** `better-sqlite3` with in-memory SQLite. 
+
+#### What’s covered
+
+##### Create (POST /appointments)
+- **201** on valid create  
+- **409** on overlaps (same clinician)  
+- **201** when endpoints just touch  
+- **201** same slot across different clinicians  
+- **400** for invalid ISO, zero-length, past, missing fields  
+- **Role checks:** **201** for admin; **403** for unknown roles
+
+##### Admin list (GET /appointments)
+- **200** all upcoming by default  
+- `from`/`to` filtering (bounds validated)  
+- **400** invalid ranges/params  
+- **403** non-admin
+
+##### Clinician schedule (GET /clinicians/:id/appointments)
+- **200** only that clinician’s appointments, ordered by start  
+- `from`/`to` filtering  
+- **404** unknown clinician; **403** non-clinician/admin  
+- **400** invalid params *(controller logs a 404 in this test — expected)*
+
+##### Concurrency
+- Same clinician & slot, many concurrent POSTs → exactly **one 201**, rest **409**  
+- Same slot across different clinicians → **all 201**
+
+##### Race outcome (determinism)
+- 4 patients race the same slot over multiple trials → always **one winner**, and the **winner varies** (normal non-determinism; correctness preserved)
 
 ## Notes
 
