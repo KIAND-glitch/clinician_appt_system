@@ -11,6 +11,8 @@ This README explains the repository structure, the tech stack used, the API endp
 - Dev server: `npm run dev` (uses `ts-node-dev`)
 - Build: `npm run build`
 - Run tests: `npm test` (Jest + Supertest). Tests use `process.env.DB_PATH = ':memory:'` so they run against an in-memory SQLite instance.
+- Start server: `npm start`
+- Seed database: `npm run seed`
 - API docs (Swagger UI): `GET /docs` when the server is running
 
 
@@ -30,6 +32,7 @@ This README explains the repository structure, the tech stack used, the API endp
 	- `docs/` - swagger spec generator and UI mounting
 	- `types/` - small local declaration files
 - `tests/` - Jest + Supertest integration tests
+- `scripts/` - Data seeding
 
 ## Tech stack
 
