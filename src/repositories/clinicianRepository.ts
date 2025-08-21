@@ -1,39 +1,37 @@
 import { db } from '../config/db';
 import { Appointment, AppointmentSchema } from '../entities/appointment';
 
-export function isClinician(clinicianId: string): boolean {
+export function clinicianExists(clinicianId: string): boolean {
     const row = db.prepare('SELECT 1 FROM clinicians WHERE id = ?').get(clinicianId);
     return !!row;
 }
 
-export function getAppointmentsByClinician(clinicianId: string, from?: string, to?: string): Appointment[] {
-    let query = 'SELECT * FROM appointments WHERE clinician_id = ?';
-    const params: any[] = [clinicianId];
+export function getAppointmentsByClinician(
+  clinicianId: string,
+  from: string,
+  to?: string
+): Appointment[] {
+  let sql = `
+    SELECT
+      id,
+      clinician_id AS clinicianId,
+      patient_id  AS patientId,
+      start,
+      end,
+      created_at  AS createdAt
+    FROM appointments
+  `;
 
-    const now = new Date().toISOString();
+  const conds: string[] = ['clinician_id = ?', 'start >= ?'];
+  const params: string[] = [clinicianId, from];
 
-    if (from && to) {
-        query += ' AND start >= ? AND end <= ?';
-        params.push(from, to);
-    } else if (from) {
-        query += ' AND start >= ?';
-        params.push(from);
-    } else if (to) {
-        query += ' AND end <= ? AND start >= ?';
-        params.push(to, now);
-    } else {
-        query += ' AND start >= ?';
-        params.push(now);
-    }
+  if (to) { 
+    conds.push('end <= ?'); 
+    params.push(to); 
+  }
 
-    query += ' ORDER BY start ASC';
-    const rows = db.prepare(query).all(...params);
-    return rows.map((row: any) =>
-            AppointmentSchema.parse({
-                ...row,
-                clinicianId: row.clinician_id,
-                patientId: row.patient_id,
-                createdAt: row.created_at,
-            })
-        );
+  sql += ' WHERE ' + conds.join(' AND ') + ' ORDER BY start ASC';
+
+  const rows = db.prepare(sql).all(...params) as Appointment[];
+  return rows.map(r => AppointmentSchema.parse(r));
 }

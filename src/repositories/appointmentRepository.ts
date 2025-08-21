@@ -1,6 +1,6 @@
 import { db } from '../config/db';
 import { randomUUID } from 'node:crypto';
-import { Appointment, AppointmentSchema } from '../entities/appointment';
+import { Appointment, AppointmentCreate, AppointmentSchema } from '../entities/appointment';
 
 export function ensurePatient(id: string) {
   db.prepare('INSERT OR IGNORE INTO patients (id) VALUES (?)').run(id);
@@ -9,13 +9,6 @@ export function ensurePatient(id: string) {
 export function ensureClinician(id: string) {
   db.prepare('INSERT OR IGNORE INTO clinicians (id) VALUES (?)').run(id);
 }
-
-export type AppointmentInsert = {
-  clinicianId: string;
-  patientId: string;
-  start: string; 
-  end: string;
-};
 
 export function hasOverlap(clinicianId: string, start: string, end: string): boolean {
   const row = db.prepare(
@@ -26,8 +19,8 @@ export function hasOverlap(clinicianId: string, start: string, end: string): boo
   return !!row;
 }
 
-export function createAppointment(input: AppointmentInsert): Appointment {
-  const id = randomUUID();
+export function createAppointment(input: AppointmentCreate): Appointment {
+  const id = randomUUID() as string;
   const createdAt = new Date().toISOString();
 
   const appt: Appointment = {
@@ -41,7 +34,6 @@ export function createAppointment(input: AppointmentInsert): Appointment {
 
   AppointmentSchema.parse(appt);
 
-
   db.prepare(
     `INSERT INTO appointments (id, clinician_id, patient_id, start, end, created_at)
      VALUES (?, ?, ?, ?, ?, ?)`
@@ -51,34 +43,27 @@ export function createAppointment(input: AppointmentInsert): Appointment {
 }
 
 
-export function getAllAppointments(from?: string, to?: string): Appointment[] {
-  let sql = `SELECT
-     id,
-     clinician_id AS clinicianId,
-     patient_id  AS patientId,
-     start,
-     end,
-     created_at  AS createdAt
-   FROM appointments`;
-  const params: any[] = [];
-  const conds: string[] = [];
+export function getAllAppointments(from: string, to?: string): Appointment[] {
+  let sql = `
+    SELECT
+      id,
+      clinician_id AS clinicianId,
+      patient_id  AS patientId,
+      start,
+      end,
+      created_at  AS createdAt
+    FROM appointments
+  `;
 
-  if (from) {
-    conds.push('start >= ?');
-    params.push(from);
-  } else {
-    conds.push('start >= ?');
-    params.push(new Date().toISOString());
-  }
+  const conds: string[] = ['start >= ?'];
+  const params: string[] = [from];
 
-  if (to) {
+  if (to) { 
     conds.push('end <= ?');
     params.push(to);
   }
 
-  if (conds.length) sql += ' WHERE ' + conds.join(' AND ');
-
-  sql += ' ORDER BY start ASC';
+  sql += ' WHERE ' + conds.join(' AND ') + ' ORDER BY start ASC';
 
   const rows = db.prepare(sql).all(...params) as Appointment[];
   return rows.map(r => AppointmentSchema.parse(r));
