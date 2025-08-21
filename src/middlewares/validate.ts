@@ -1,10 +1,10 @@
 import { z, ZodSafeParseError } from 'zod';
-import type { Request, Response, NextFunction } from 'express';
+import type { Request, Response, NextFunction, RequestHandler } from 'express';
 
 type AnySchema = z.ZodType<any, any, any>;
 type Schema = { body?: AnySchema; query?: AnySchema; params?: AnySchema };
 
-export function validate(schema: Schema) {
+export function validate(schema: Schema): RequestHandler {
   return (req: Request, res: Response, next: NextFunction) => {
     const bad = (_error: ZodSafeParseError<any>) => {
       return res.status(400).json({ message: 'Invalid input' });

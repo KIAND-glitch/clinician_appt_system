@@ -1,12 +1,12 @@
 import { db } from '../config/db';
-import { AppointmentEntity, AppointmentSchema } from '../entities/appointment';
+import { Appointment, AppointmentSchema } from '../entities/appointment';
 
 export function isClinician(clinicianId: string): boolean {
     const row = db.prepare('SELECT 1 FROM clinicians WHERE id = ?').get(clinicianId);
     return !!row;
 }
 
-export function getAppointmentsByClinician(clinicianId: string, from?: string, to?: string): AppointmentEntity[] {
+export function getAppointmentsByClinician(clinicianId: string, from?: string, to?: string): Appointment[] {
     let query = 'SELECT * FROM appointments WHERE clinician_id = ?';
     const params: any[] = [clinicianId];
 
@@ -29,13 +29,11 @@ export function getAppointmentsByClinician(clinicianId: string, from?: string, t
     query += ' ORDER BY start ASC';
     const rows = db.prepare(query).all(...params);
     return rows.map((row: any) =>
-        new AppointmentEntity(
             AppointmentSchema.parse({
                 ...row,
                 clinicianId: row.clinician_id,
                 patientId: row.patient_id,
                 createdAt: row.created_at,
             })
-        )
-    );
+        );
 }

@@ -1,6 +1,6 @@
 import { db } from '../config/db';
 import { randomUUID } from 'node:crypto';
-import { AppointmentEntity, Appointment, AppointmentSchema } from '../entities/appointment';
+import { Appointment, AppointmentSchema } from '../entities/appointment';
 
 export function ensurePatient(id: string) {
   db.prepare('INSERT OR IGNORE INTO patients (id) VALUES (?)').run(id);

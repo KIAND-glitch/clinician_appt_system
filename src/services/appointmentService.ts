@@ -1,22 +1,16 @@
 import { parseIsoToUtcString, isStrictlyBefore, nowUtcIso } from '../utils/date';
 import { ensureClinician, ensurePatient, hasOverlap, createAppointment, getAllAppointments } from '../repositories/appointmentRepository';
-import { Appointment } from '../entities/appointment';
+import { Appointment, AppointmentCreate } from '../entities/appointment';
 
 export class BadRequest extends Error { status = 400; }
 export class Conflict extends Error { status = 409; }
 
-export type CreateAppointmentInput = {
-  clinicianId: string;
-  patientId: string;
-  start: string;
-  end: string;
-};
-
 export function getAppointmentsInRange(from?: string, to?: string): Appointment[] {
-  return getAllAppointments(from, to);
+  const effectiveFrom = from ?? nowUtcIso();
+  return getAllAppointments(effectiveFrom, to);
 }
 
-export function createAppointmentForPatient(input: CreateAppointmentInput): Appointment {
+export function createAppointmentForPatient(input: AppointmentCreate): Appointment {
   const startIso = parseIsoToUtcString(input.start);
   const endIso   = parseIsoToUtcString(input.end);
 

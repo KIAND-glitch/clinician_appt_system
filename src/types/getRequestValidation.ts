@@ -6,8 +6,8 @@ export const DateRangeQuerySchema = z.object({
   from: DateTimeString.optional(),
   to:   DateTimeString.optional(),
 }).strict().superRefine((val, ctx) => {
-  if (val.from && val.to && Date.parse(val.from) > Date.parse(val.to)) {
-    ctx.addIssue({ code: 'custom', path: ['from'], message: 'from must be before to' });
+  if (val.from && val.to && Date.parse(val.from) >= Date.parse(val.to)) {
+    ctx.addIssue({ code: 'custom', path: ['from'], message: 'Invalid input' });
   }
 });
 

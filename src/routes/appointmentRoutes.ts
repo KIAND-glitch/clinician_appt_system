@@ -2,22 +2,24 @@
 import { Router } from 'express';
 import { validate } from '../middlewares/validate';
 import { requireRole } from '../middlewares/auth';
-import * as appointmentController from '../controllers/appointmentController';
+import { getAppointments, createAppointment } from '../controllers/appointmentController';
 import { AppointmentCreateSchema } from '../entities/appointment';
-import { DateRangeQuerySchema } from '../types/validation';
-
+import { DateRangeQuerySchema } from '../types/getRequestValidation';
 
 const router = Router();
 
-router.get('/appointments',
+router.get(
+  '/appointments',
   requireRole(['admin']),
   validate({ query: DateRangeQuerySchema }),
-  appointmentController.get);
+  getAppointments
+);
 
 router.post(
   '/appointments',
   requireRole(['patient', 'admin']),
   validate({ body: AppointmentCreateSchema }),
-  appointmentController.create);
+  createAppointment
+);
 
 export default router;

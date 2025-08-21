@@ -1,9 +1,15 @@
 import type { Request, Response } from 'express';
-import { getClinicianAppointments } from '../services/clinicianService';
+import { getClinicianAppointments, NotFound } from '../services/clinicianService';
 
 export function getAppointments(req: Request, res: Response) {
-	const { id } = req.params as any;
-	const { from, to } = req.query as any;
-	const list = getClinicianAppointments(id, from, to);
-	res.json(list);
+	try {
+		const { id } = req.params as { id: string };
+		const { from, to } = req.query as { from?: string; to?: string };
+		const list = getClinicianAppointments(id, from, to);
+		res.json(list);
+	} catch (e: any) {
+		console.error(e);
+		if (e instanceof NotFound) return res.status(404).json({ message: e.message });
+		res.status(500).json({ error: 'Internal server error' });
+	}
 }
