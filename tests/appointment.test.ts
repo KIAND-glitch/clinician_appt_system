@@ -169,6 +169,45 @@ describe('POST /appointments (patient booking)', () => {
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch("Invalid input");
   });
+
+  test('Invalid query params return 400', async () => {
+    const res = await request(app)
+      .get('/appointments')
+      .set('X-Role', 'admin')
+      .query({ foo: 'bar' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch("Invalid input");
+  });
+
+  test('201 when appointment is set by admin', async () => {
+    const res = await request(app)
+      .post('/appointments')
+      .set('X-Role', 'admin')
+      .send({
+        clinicianId: 'c1',
+        patientId: 'p1',
+        start: isoPlus(0),
+        end: isoPlus(30),
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body).toMatchObject({ clinicianId: 'c1', patientId: 'p1' });
+  });
+
+  test('403 when user is not admin or patient', async () => {
+    const res = await request(app)
+      .post('/appointments')
+      .set('X-Role', 'kian')
+      .send({
+        clinicianId: 'c1',
+        patientId: 'p1',
+        start: isoPlus(0),
+        end: isoPlus(30),
+      });
+
+    expect(res.status).toBe(403);
+  });
 });
 
 describe('GET /appointments (admin)', () => {
@@ -263,5 +302,23 @@ describe('GET /appointments (admin)', () => {
       expect(new Date(appt.end).getTime())
         .toBeLessThanOrEqual(new Date(to).getTime());
     }
+  });
+
+  test('403 when user is not admin', async () => {
+    const res = await request(app)
+      .get('/appointments')
+      .set('X-Role', 'kian');
+
+    expect(res.status).toBe(403);
+  });
+
+  test('400 when invalid query params are provided', async () => {
+    const res = await request(app)
+      .get('/appointments')
+      .set('X-Role', 'admin')
+      .query({ foo: 'bar' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch("Invalid input");
   });
 });

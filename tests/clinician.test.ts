@@ -73,4 +73,28 @@ describe('GET /clinicians/:id/appointments', () => {
         expect(res.status).toBe(400);
         expect(res.body.message).toMatch("Invalid input");
     });
+
+    test('400 when invalid query params are provided', async () => {
+        const res = await request(app)
+            .get('/clinicians/c1/appointments')
+            .set('X-Role', 'clinician')
+            .query({ foo: 'bar' });
+        expect(res.status).toBe(400);
+        expect(res.body.message).toMatch("Invalid input");
+    });
+
+    test('404 when clinician does not exist', async () => {
+        const res = await request(app)
+            .get('/clinicians/c999/appointments')
+            .set('X-Role', 'clinician');
+        expect(res.status).toBe(404);
+        expect(res.body.message).toMatch("Clinician not found");
+    });
+
+    test('403 when user is not admin or clinician', async () => {
+        const res = await request(app)
+            .get('/clinicians/c1/appointments')
+            .set('X-Role', 'patient');
+        expect(res.status).toBe(403);
+    });
 });

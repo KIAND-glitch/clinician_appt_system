@@ -8,8 +8,8 @@ export function getAppointments(req: Request, res: Response) {
 		const list = getClinicianAppointments(id, from, to);
 		res.json(list);
 	} catch (e: any) {
-		console.error(e);
 		if (e instanceof NotFound) return res.status(404).json({ message: e.message });
+		console.error(e);
 		res.status(500).json({ error: 'Internal server error' });
 	}
 }
