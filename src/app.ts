@@ -14,16 +14,16 @@ export function createApp() {
   app.use('/', appointmentRoutes);
   app.use('/', clinicianRoutes);
 
-  // Swagger UI
-  app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+  app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, { explorer: true }));
 
-  app.use((_req, _res, next) => next({ status: 404, message: 'route does not exist' }));
+  // 404
+  app.use((_req, res) => res.status(404).json({ message: 'route does not exist' }));
 
+  // Error handler
   app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
     if (res.headersSent) return;
     const status = typeof err?.status === 'number' ? err.status : 500;
-    const message = typeof err?.message === 'string' ? err.message : 'internal error';
-    res.status(status).json({ message });
+    res.status(status).json({ message: err?.message ?? 'internal error' });
   });
 
   return app;
