@@ -21,8 +21,6 @@ CREATE TABLE IF NOT EXISTS appointments (
   FOREIGN KEY (patient_id)  REFERENCES patients(id)  ON DELETE CASCADE
 );
 
-CREATE INDEX IF NOT EXISTS idx_appt_clinician_start ON appointments (clinician_id, start);
-
 -- Touching endpoints allowed; only true overlaps blocked
 CREATE TRIGGER IF NOT EXISTS trg_appt_no_overlap
 BEFORE INSERT ON appointments
@@ -30,17 +28,6 @@ BEGIN
   SELECT CASE WHEN EXISTS (
     SELECT 1 FROM appointments a
     WHERE a.clinician_id = NEW.clinician_id
-      AND NEW.start < a.end
-      AND NEW.end   > a.start
-  ) THEN RAISE(ABORT, 'overlap') END;
-END;
-
-CREATE TRIGGER IF NOT EXISTS trg_appt_no_overlap_update
-BEFORE UPDATE ON appointments
-BEGIN
-  SELECT CASE WHEN EXISTS (
-    SELECT 1 FROM appointments a
-    WHERE a.clinician_id = NEW.clinician_id AND a.id <> NEW.id
       AND NEW.start < a.end
       AND NEW.end   > a.start
   ) THEN RAISE(ABORT, 'overlap') END;
