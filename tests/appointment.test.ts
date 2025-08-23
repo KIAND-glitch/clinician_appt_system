@@ -8,8 +8,12 @@ import { app } from '../src/app';
 import { db } from '../src/config/db';
 
 const base = new Date(Date.now() + 60 * 60 * 1000); // +1h from now
-const isoPlus = (mins: number) =>
-  new Date(base.getTime() + mins * 60 * 1000).toISOString();
+
+const isoPlus = (mins: number, baseTime: Date = base) =>
+  new Date(baseTime.getTime() + mins * 60 * 1000).toISOString();
+
+const timeTomorrow = new Date(Date.UTC(2025, 7, 24, 0, 0, 0, 0));
+
 
 // clear tables between tests
 beforeEach(() => {
@@ -21,6 +25,35 @@ afterAll(() => {
 });
 
 describe('POST /appointments (patient booking)', () => {
+
+  test('201 creates an appointment when back to back', async () => {
+    const res = await request(app)
+      .post('/appointments')
+      .set('X-Role', 'patient')
+      .send({
+        clinicianId: 'c1',
+        patientId: 'p1',
+        start: isoPlus(0, timeTomorrow),
+        end: isoPlus(30, timeTomorrow),
+      });
+
+      expect(res.status).toBe(201);
+      expect(res.body).toMatchObject({ clinicianId: 'c1', patientId: 'p1' });
+
+      const res2 = await request(app)
+        .post('/appointments')
+        .set('X-Role', 'patient')
+        .send({
+          clinicianId: 'c1',
+          patientId: 'p1',
+          start: isoPlus(30, timeTomorrow),
+          end: isoPlus(60, timeTomorrow),
+        });
+
+      expect(res2.status).toBe(201);
+      expect(res2.body).toMatchObject({ clinicianId: 'c1', patientId: 'p1' });
+  })
+
   test('201 creates an appointment', async () => {
     const res = await request(app)
       .post('/appointments')
